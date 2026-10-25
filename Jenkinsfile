@@ -159,63 +159,51 @@ pipeline {
             }
         }
 
-        stage('5. Push Image to Registry') {
-            steps {
-                script {
-                    if (params.REGISTRY == 'DOCKERHUB') {
-                        withCredentials([
-                            usernamePassword(
-                                credentialsId: env.DOCKERHUB_CREDENTIALS,
-                                usernameVariable: 'DH_USER',
-                                passwordVariable: 'DH_TOKEN'
-                            )
-                        ]) {
-                            sh '''
-                                set -eu
-                                set +x
+       
+stage('5. Push Image to Docker Hub') {
+    steps {
+        withCredentials([
+            usernamePassword(
+                credentialsId: 'dockerhub-creds',
+                usernameVariable: 'DH_USER',
+                passwordVariable: 'DH_TOKEN'
+            )
+        ]) {
+            sh '''
+                set -eu
+                set +x
 
-                                echo "$DH_TOKEN" | docker login \
-                                  --username "$DH_USER" \
-                                  --password-stdin
+                LOCAL_IMAGE="my-web-app:latest"
+                DOCKERHUB_IMAGE="ninande/my-web-app-new"
 
-                                docker push "${IMAGE_NAME}:${IMAGE_TAG}"
-                                docker push "${IMAGE_NAME}:latest"
+                echo "Checking local Docker image..."
+                docker image inspect "$LOCAL_IMAGE" >/dev/null
 
-                                docker logout || true
-                            '''
-                        }
-                    } else {
-                        // This branch requires AWS CLI and AWS credentials
-                        // or an appropriate IAM role on the Jenkins agent.
-                        sh '''
-                            set -eu
-                            set +x
+                echo "Logging in to Docker Hub..."
+                printf '%s' "$DH_TOKEN" |
+                    docker login \
+                        --username "$DH_USER" \
+                        --password-stdin
 
-                            aws sts get-caller-identity
+                echo "Tagging image for Docker Hub..."
+                docker tag "$LOCAL_IMAGE" \
+                    "${DOCKERHUB_IMAGE}:${BUILD_NUMBER}"
 
-                            aws ecr describe-repositories \
-                              --region "${AWS_REGION}" \
-                              --repository-names "${ECR_REPO}" >/dev/null
+                docker tag "$LOCAL_IMAGE" \
+                    "${DOCKERHUB_IMAGE}:latest"
 
-                            aws ecr get-login-password \
-                              --region "${AWS_REGION}" |
-                              docker login \
-                                --username AWS \
-                                --password-stdin \
-                                "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+                echo "Pushing build-number tag..."
+                docker push "${DOCKERHUB_IMAGE}:${BUILD_NUMBER}"
 
-                            docker push "${IMAGE_NAME}:${IMAGE_TAG}"
-                            docker push "${IMAGE_NAME}:latest"
+                echo "Pushing latest tag..."
+                docker push "${DOCKERHUB_IMAGE}:latest"
 
-                            docker logout \
-                              "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com" || true
-                        '''
-                    }
-                }
-            }
+                echo "Docker Hub push completed successfully."
+            '''
         }
-
-        
+    }
+}
+    
 
 stage('6. Deploy to Dev and Staging via Ansible EC2') {
     steps {
