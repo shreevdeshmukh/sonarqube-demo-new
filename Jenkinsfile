@@ -104,61 +104,69 @@ pipeline {
             }
         }
 
-        stage('4. Build Image and Trivy Security Scan') {
-            steps {
-                script {
-                    if (params.REGISTRY == 'DOCKERHUB') {
-                        env.IMAGE_NAME = env.DOCKERHUB_REPO
-                    } else {
-                        env.IMAGE_NAME =
-                            "${env.AWS_ACCOUNT_ID}.dkr.ecr.${env.AWS_REGION}.amazonaws.com/${env.ECR_REPO}"
-                    }
-
-                    env.IMAGE_TAG = "${env.BUILD_NUMBER}"
-                }
-
-                sh '''
-                    set -eu
-
-                    mkdir -p reports
-
-                    echo "Scanning source files..."
-
-                    trivy fs \
-                      --scanners vuln,secret,misconfig \
-                      --format json \
-                      --output reports/trivy-fs-report.json \
-                      .
-
-                    echo "Building ${IMAGE_NAME}:${IMAGE_TAG}..."
-
-                    docker build \
-                      -t "${IMAGE_NAME}:${IMAGE_TAG}" \
-                      -t "${IMAGE_NAME}:latest" \
-                      .
-
-                    echo "Generating container image scan report..."
-
-                    trivy image \
-                      --severity CRITICAL \
-                      --ignore-unfixed \
-                      --exit-code 0 \
-                      --format json \
-                      --output reports/trivy-image-report.json \
-                      "${IMAGE_NAME}:${IMAGE_TAG}"
-
-                    echo "Enforcing critical vulnerability security gate..."
-
-                    trivy image \
-                      --severity CRITICAL \
-                      --ignore-unfixed \
-                      --exit-code 1 \
-                      "${IMAGE_NAME}:${IMAGE_TAG}"
-
-                    echo "Trivy security gate passed."
-                '''
+      
+stage('4. Build Image and Trivy Security Scan') {
+    steps {
+        script {
+            if (params.REGISTRY == 'DOCKERHUB') {
+                env.IMAGE_NAME = env.DOCKERHUB_REPO
+            } else {
+                env.IMAGE_NAME =
+                    "${env.AWS_ACCOUNT_ID}.dkr.ecr.${env.AWS_REGION}.amazonaws.com/${env.ECR_REPO}"
             }
+
+            env.IMAGE_TAG = "${env.BUILD_NUMBER}"
+
+            echo "Registry: ${params.REGISTRY}"
+            echo "Image: ${env.IMAGE_NAME}:${env.IMAGE_TAG}"
         }
+
+        sh '''
+            set -eu
+
+            export IMAGE_NAME="${IMAGE_NAME}"
+            export IMAGE_TAG="${IMAGE_TAG}"
+
+            mkdir -p reports
+
+            echo "Scanning source files..."
+
+            trivy fs \
+              --scanners vuln,secret,misconfig \
+              --format json \
+              --output reports/trivy-fs-report.json \
+              .
+
+            echo "Building Docker image..."
+
+            docker build \
+              -t "${IMAGE_NAME}:${IMAGE_TAG}" \
+              -t "${IMAGE_NAME}:latest" \
+              .
+
+            echo "Generating Trivy image report..."
+
+            trivy image \
+              --severity CRITICAL \
+              --ignore-unfixed \
+              --exit-code 0 \
+              --format json \
+              --output reports/trivy-image-report.json \
+              "${IMAGE_NAME}:${IMAGE_TAG}"
+
+            echo "Checking critical vulnerabilities..."
+
+            trivy image \
+              --severity CRITICAL \
+              --ignore-unfixed \
+              --exit-code 1 \
+              "${IMAGE_NAME}:${IMAGE_TAG}"
+
+            echo "Trivy security gate passed."
+        '''
+    }
+}
+
 
         stage('5. Push to Registry') {
             steps {
