@@ -28,9 +28,9 @@ pipeline {
         DOCKERHUB_CREDENTIALS = 'dockerhub-creds'
         DOCKERHUB_REPO = 'ninande/my-web-app-new'
 
-        //AWS_REGION = 'ap-south-1'
-        //AWS_ACCOUNT_ID = '699258777180'
-        //ECR_REPO = 'my-web-app'
+        AWS_REGION = 'ap-south-1'
+        AWS_ACCOUNT_ID = '699258777180'
+        ECR_REPO = 'my-web-app'
 
         // Jenkins agent connects to this separate Ansible EC2.
         ANSIBLE_HOST = '10.0.11.194'
@@ -41,11 +41,11 @@ pipeline {
        // ANSIBLE_CREDENTIALS = 'ansible-control-ssh-key'
        // ANSIBLE_KNOWN_HOSTS_CREDENTIALS = 'ansible-known-hosts'
 
-    IMAGE_NAME       = 'my-web-app'
-    IMAGE_TAG        = 'latest'
-    REGISTRY         = '699258777180.dkr.ecr.ap-south-1.amazonaws.com'
-    AWS_REGION       = 'ap-south-1'
-    AWS_ACCOUNT_ID   = '699258777180'
+   // IMAGE_NAME       = 'my-web-app-new'
+   // IMAGE_TAG        = 'latest'
+    // REGISTRY         = '699258777180.dkr.ecr.ap-south-1.amazonaws.com'
+   // AWS_REGION       = 'ap-south-1'
+    //AWS_ACCOUNT_ID   = '699258777180'
 
         NOTIFY_EMAIL = 'shreevdeshmukh@gmail.com'
     }
