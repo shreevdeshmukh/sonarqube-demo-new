@@ -1,4 +1,3 @@
-
 pipeline {
     agent {
         label 'dockerhost'
@@ -208,64 +207,71 @@ pipeline {
             }
         }
 
-        stage('6. Deploy to Dev and Staging via Ansible EC2') {
-            steps {
-                sshagent(credentials: ["${ANSIBLE_CREDENTIALS}"]) {
-                    withCredentials([
-                        file(
-                            credentialsId: "${ANSIBLE_KNOWN_HOSTS_CREDENTIALS}",
-                            variable: 'KNOWN_HOSTS_FILE'
-                        )
-                    ]) {
-                        sh '''
-                            set -eu
+        
+stage('6. Deploy to Dev and Staging via Ansible EC2') {
+    steps {
+        withCredentials([
+            sshUserPrivateKey(
+                credentialsId: 'ansible-control-ssh-key',
+                keyFileVariable: 'ANSIBLE_KEY'
+            ),
+            file(
+                credentialsId: 'ansible-known-hosts',
+                variable: 'KNOWN_HOSTS_FILE'
+            )
+        ]) {
+            sh '''
+                set -eu
 
-                            SSH_OPTS="-o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10"
+                SSH_OPTS="-o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10"
 
-                            echo "Checking remote Ansible installation..."
+                echo "Checking SSH access to Ansible EC2..."
 
-                            ssh $SSH_OPTS \
-                              -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" \
-                              "${ANSIBLE_USER}@${ANSIBLE_HOST}" \
-                              'command -v ansible-playbook &&
-                               test -r /opt/ansible/my-web-app/inventory.ini &&
-                               test -r /opt/ansible/my-web-app/deploy.yml'
+                ssh $SSH_OPTS \
+                    -i "$ANSIBLE_KEY" \
+                    -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" \
+                    "${ANSIBLE_USER}@${ANSIBLE_HOST}" \
+                    'command -v ansible-playbook &&
+                     test -r /opt/ansible/my-web-app/inventory.ini &&
+                     test -r /opt/ansible/my-web-app/deploy.yml'
 
-                            echo "Deploying to Dev..."
+                echo "Deploying to Dev..."
 
-                            ssh $SSH_OPTS \
-                              -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" \
-                              "${ANSIBLE_USER}@${ANSIBLE_HOST}" \
-                              "ansible-playbook \
-                               -i '${ANSIBLE_DIR}/inventory.ini' \
-                               '${ANSIBLE_DIR}/deploy.yml' \
-                               --limit dev \
-                               -e 'image_name=${IMAGE_NAME}' \
-                               -e 'image_tag=${IMAGE_TAG}' \
-                               -e 'registry=${REGISTRY}' \
-                               -e 'aws_region=${AWS_REGION}' \
-                               -e 'aws_account_id=${AWS_ACCOUNT_ID}'"
+                ssh $SSH_OPTS \
+                    -i "$ANSIBLE_KEY" \
+                    -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" \
+                    "${ANSIBLE_USER}@${ANSIBLE_HOST}" \
+                    "ansible-playbook \
+                     -i '${ANSIBLE_INVENTORY}' \
+                     '${ANSIBLE_PLAYBOOK}' \
+                     --limit dev \
+                     -e 'image_name=${IMAGE_NAME}' \
+                     -e 'image_tag=${IMAGE_TAG}' \
+                     -e 'registry=${REGISTRY}' \
+                     -e 'aws_region=${AWS_REGION}' \
+                     -e 'aws_account_id=${AWS_ACCOUNT_ID}'"
 
-                            echo "Deploying to Staging..."
+                echo "Deploying to Staging..."
 
-                            ssh $SSH_OPTS \
-                              -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" \
-                              "${ANSIBLE_USER}@${ANSIBLE_HOST}" \
-                              "ansible-playbook \
-                               -i '${ANSIBLE_DIR}/inventory.ini' \
-                               '${ANSIBLE_DIR}/deploy.yml' \
-                               --limit staging \
-                               -e 'image_name=${IMAGE_NAME}' \
-                               -e 'image_tag=${IMAGE_TAG}' \
-                               -e 'registry=${REGISTRY}' \
-                               -e 'aws_region=${AWS_REGION}' \
-                               -e 'aws_account_id=${AWS_ACCOUNT_ID}'"
-                        '''
-                    }
-                }
-            }
+                ssh $SSH_OPTS \
+                    -i "$ANSIBLE_KEY" \
+                    -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" \
+                    "${ANSIBLE_USER}@${ANSIBLE_HOST}" \
+                    "ansible-playbook \
+                     -i '${ANSIBLE_INVENTORY}' \
+                     '${ANSIBLE_PLAYBOOK}' \
+                     --limit staging \
+                     -e 'image_name=${IMAGE_NAME}' \
+                     -e 'image_tag=${IMAGE_TAG}' \
+                     -e 'registry=${REGISTRY}' \
+                     -e 'aws_region=${AWS_REGION}' \
+                     -e 'aws_account_id=${AWS_ACCOUNT_ID}'"
+
+                echo "Dev and Staging deployment completed."
+            '''
         }
-
+    }
+}
         stage('7. Manual Approval - Production') {
             steps {
                 timeout(time: 30, unit: 'MINUTES') {
