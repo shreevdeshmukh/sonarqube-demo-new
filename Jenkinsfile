@@ -1,4 +1,3 @@
-
 pipeline {
     agent {
         label 'dockerhost'
@@ -499,4 +498,5 @@ ${env.BUILD_URL}console
             sh 'docker image prune -f || true'
         }
     }
+}
 }
