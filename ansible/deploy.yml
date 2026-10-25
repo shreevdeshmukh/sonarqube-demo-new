@@ -1,0 +1,59 @@
+---
+- name: Deploy SonarQube Demo Application
+  hosts: dev
+  become: true
+  gather_facts: true
+
+  vars:
+    app_name: sonarqube-demo
+    docker_image: sonarqube-demo:latest
+    app_port: 8080
+    container_port: 8080
+    app_directory: /opt/sonarqube-demo
+
+  tasks:
+    - name: Ensure application directory exists
+      ansible.builtin.file:
+        path: "{{ app_directory }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Check Docker is installed
+      ansible.builtin.command:
+        cmd: docker --version
+      changed_when: false
+
+    - name: Copy Dockerfile to deployment server
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../Dockerfile"
+        dest: "{{ app_directory }}/Dockerfile"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Copy Maven project to deployment server
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../"
+        dest: "{{ app_directory }}/"
+        owner: root
+        group: root
+        mode: preserve
+
+    - name: Build application Docker image
+      community.docker.docker_image:
+        name: "{{ docker_image }}"
+        source: build
+        build:
+          path: "{{ app_directory }}"
+        force_source: true
+
+    - name: Ensure application container is running
+      community.docker.docker_container:
+        name: "{{ app_name }}"
+        image: "{{ docker_image }}"
+        state: started
+        restart_policy: unless-stopped
+        published_ports:
+          - "{{ app_port }}:{{ container_port }}"
