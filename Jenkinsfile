@@ -28,16 +28,24 @@ pipeline {
         DOCKERHUB_CREDENTIALS = 'dockerhub-creds'
         DOCKERHUB_REPO = 'ninande/my-web-app-new'
 
-        AWS_REGION = 'ap-south-1'
-        AWS_ACCOUNT_ID = '699258777180'
-        ECR_REPO = 'my-web-app'
+        //AWS_REGION = 'ap-south-1'
+        //AWS_ACCOUNT_ID = '699258777180'
+        //ECR_REPO = 'my-web-app'
 
         // Jenkins agent connects to this separate Ansible EC2.
         ANSIBLE_HOST = '10.0.11.194'
         ANSIBLE_USER = 'ansadmin'
-        ANSIBLE_DIR = '/opt/ansible/my-web-app'
-        ANSIBLE_CREDENTIALS = 'ansible-control-ssh-key'
-        ANSIBLE_KNOWN_HOSTS_CREDENTIALS = 'ansible-known-hosts'
+        ANSIBLE_INVENTORY = '/opt/ansible/my-web-app/inventory.ini'
+        ANSIBLE_PLAYBOOK  = '/opt/ansible/my-web-app/deploy.yml'
+       // ANSIBLE_DIR = '/opt/ansible/my-web-app'
+       // ANSIBLE_CREDENTIALS = 'ansible-control-ssh-key'
+       // ANSIBLE_KNOWN_HOSTS_CREDENTIALS = 'ansible-known-hosts'
+
+    IMAGE_NAME       = 'my-web-app'
+    IMAGE_TAG        = 'latest'
+    REGISTRY         = '699258777180.dkr.ecr.ap-south-1.amazonaws.com'
+    AWS_REGION       = 'ap-south-1'
+    AWS_ACCOUNT_ID   = '699258777180'
 
         NOTIFY_EMAIL = 'shreevdeshmukh@gmail.com'
     }
@@ -208,6 +216,7 @@ pipeline {
         }
 
         
+
 stage('6. Deploy to Dev and Staging via Ansible EC2') {
     steps {
         withCredentials([
@@ -266,8 +275,6 @@ stage('6. Deploy to Dev and Staging via Ansible EC2') {
                      -e 'registry=${REGISTRY}' \
                      -e 'aws_region=${AWS_REGION}' \
                      -e 'aws_account_id=${AWS_ACCOUNT_ID}'"
-
-                echo "Dev and Staging deployment completed."
             '''
         }
     }
@@ -285,6 +292,8 @@ stage('6. Deploy to Dev and Staging via Ansible EC2') {
         }
 
         
+
+
 stage('8. Deploy to Production via Ansible EC2') {
     steps {
         withCredentials([
@@ -300,14 +309,64 @@ stage('8. Deploy to Production via Ansible EC2') {
             sh '''
                 set -eu
 
-                echo "Deploying to Production..."
+                SSH_OPTS="-o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10"
 
-                ssh \
+                echo "========================================"
+                echo "PRODUCTION DEPLOYMENT"
+                echo "========================================"
+
+                echo "Step 1: Checking required variables..."
+
+                test -n "$ANSIBLE_HOST"
+                test -n "$ANSIBLE_USER"
+                test -n "$ANSIBLE_INVENTORY"
+                test -n "$ANSIBLE_PLAYBOOK"
+                test -n "$IMAGE_NAME"
+                test -n "$IMAGE_TAG"
+                test -n "$REGISTRY"
+
+                echo "Ansible host: $ANSIBLE_HOST"
+                echo "Image name: $IMAGE_NAME"
+                echo "Image tag: $IMAGE_TAG"
+                echo "Registry: $REGISTRY"
+
+                echo "Step 2: Checking SSH access to Ansible EC2..."
+
+                ssh $SSH_OPTS \
                     -i "$ANSIBLE_KEY" \
-                    -o IdentitiesOnly=yes \
-                    -o BatchMode=yes \
-                    -o StrictHostKeyChecking=yes \
-                    -o ConnectTimeout=10 \
+                    -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" \
+                    "${ANSIBLE_USER}@${ANSIBLE_HOST}" \
+                    'whoami &&
+                     command -v ansible-playbook &&
+                     test -r /opt/ansible/my-web-app/inventory.ini &&
+                     test -r /opt/ansible/my-web-app/deploy.yml'
+
+                echo "Step 3: Checking production inventory group..."
+
+                ssh $SSH_OPTS \
+                    -i "$ANSIBLE_KEY" \
+                    -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" \
+                    "${ANSIBLE_USER}@${ANSIBLE_HOST}" \
+                    "ansible-inventory \
+                     -i '${ANSIBLE_INVENTORY}' \
+                     --graph"
+
+                echo "Step 4: Checking production playbook syntax..."
+
+                ssh $SSH_OPTS \
+                    -i "$ANSIBLE_KEY" \
+                    -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" \
+                    "${ANSIBLE_USER}@${ANSIBLE_HOST}" \
+                    "ansible-playbook \
+                     -i '${ANSIBLE_INVENTORY}' \
+                     '${ANSIBLE_PLAYBOOK}' \
+                     --limit prod \
+                     --syntax-check"
+
+                echo "Step 5: Deploying to Production..."
+
+                ssh $SSH_OPTS \
+                    -i "$ANSIBLE_KEY" \
                     -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" \
                     "${ANSIBLE_USER}@${ANSIBLE_HOST}" \
                     "ansible-playbook \
@@ -320,12 +379,13 @@ stage('8. Deploy to Production via Ansible EC2') {
                      -e 'aws_region=${AWS_REGION}' \
                      -e 'aws_account_id=${AWS_ACCOUNT_ID}'"
 
-                echo "Production deployment completed."
+                echo "========================================"
+                echo "PRODUCTION DEPLOYMENT COMPLETED"
+                echo "========================================"
             '''
         }
     }
 }
-
     }
 
     post {
