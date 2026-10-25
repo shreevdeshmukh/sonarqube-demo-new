@@ -31,9 +31,11 @@ pipeline {
         AWS_ACCOUNT_ID = '699258777180'
         ECR_REPO = 'my-web-app'
 
-        ANSIBLE_INVENTORY = 'ansible/inventory.ini'
-        ANSIBLE_PLAYBOOK = 'ansible/deploy.yml'
-        ANSIBLE_CREDENTIALS = 'deploy-ec2-ssh-key'
+        ANSIBLE_HOST = '10.0.11.194'
+        ANSIBLE_USER = 'ansadmin'
+        ANSIBLE_INVENTORY = '/opt/ansible/my-web-app/inventory.ini'
+        ANSIBLE_PLAYBOOK = '/opt/ansible/my-web-app/deploy.yml'
+        ANSIBLE_CREDENTIALS = 'ansible-control-ssh-key'
 
         NOTIFY_EMAIL = 'ninad.de1105@gmail.com'
     }
