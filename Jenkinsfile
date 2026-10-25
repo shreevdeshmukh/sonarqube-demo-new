@@ -1,3 +1,4 @@
+
 pipeline {
     agent {
         label 'dockerhost'
@@ -32,22 +33,16 @@ pipeline {
         AWS_ACCOUNT_ID = '699258777180'
         ECR_REPO = 'my-web-app'
 
-        // Jenkins agent connects to this separate Ansible EC2.
         ANSIBLE_HOST = '10.0.11.194'
         ANSIBLE_USER = 'ansadmin'
         ANSIBLE_INVENTORY = '/opt/ansible/my-web-app/inventory.ini'
-        ANSIBLE_PLAYBOOK  = '/opt/ansible/my-web-app/deploy.yml'
-       // ANSIBLE_DIR = '/opt/ansible/my-web-app'
-       // ANSIBLE_CREDENTIALS = 'ansible-control-ssh-key'
-       // ANSIBLE_KNOWN_HOSTS_CREDENTIALS = 'ansible-known-hosts'
+        ANSIBLE_PLAYBOOK = '/opt/ansible/my-web-app/deploy.yml'
 
-   // IMAGE_NAME       = 'my-web-app-new'
-   // IMAGE_TAG        = 'latest'
-    // REGISTRY         = '699258777180.dkr.ecr.ap-south-1.amazonaws.com'
-   // AWS_REGION       = 'ap-south-1'
-    //AWS_ACCOUNT_ID   = '699258777180'
         COMPOSE_DIR = '/opt/my-web-app-new'
         NOTIFY_EMAIL = 'shreevdeshmukh@gmail.com'
+
+        IMAGE_NAME = ''
+        IMAGE_TAG = ''
     }
 
     stages {
@@ -60,8 +55,6 @@ pipeline {
                     git log -1 --oneline
                     test -f pom.xml
                     test -f Dockerfile
-                 //   test -f ansible/inventory.ini
-                 //   test -f ansible/deploy.yml
                 '''
             }
         }
@@ -144,23 +137,30 @@ pipeline {
                       -t "${IMAGE_NAME}:latest" \
                       .
 
-                    echo "Scanning container image..."
+                    echo "Generating container image scan report..."
+
+                    trivy image \
+                      --severity CRITICAL \
+                      --ignore-unfixed \
+                      --exit-code 0 \
+                      --format json \
+                      --output reports/trivy-image-report.json \
+                      "${IMAGE_NAME}:${IMAGE_TAG}"
+
+                    echo "Enforcing critical vulnerability security gate..."
 
                     trivy image \
                       --severity CRITICAL \
                       --ignore-unfixed \
                       --exit-code 1 \
-                      --format json \
-                      --output reports/trivy-image-report.json \
                       "${IMAGE_NAME}:${IMAGE_TAG}"
 
-                    echo 'Trivy image security gate passed.'
+                    echo "Trivy security gate passed."
                 '''
             }
         }
 
-       
- stage('5.Push to Registry') {
+        stage('5. Push to Registry') {
             steps {
                 script {
                     if (params.REGISTRY == 'DOCKERHUB') {
@@ -207,8 +207,8 @@ pipeline {
                 }
             }
         }
-    
- stage('6.Deploy with Docker Compose') {
+
+        stage('6. Deploy with Docker Compose') {
             steps {
                 script {
                     if (params.REGISTRY == 'DOCKERHUB') {
@@ -229,8 +229,7 @@ pipeline {
                                   --username "$DH_USER" \
                                   --password-stdin
 
-                                export IMAGE_NAME="${IMAGE_NAME}"
-                                export IMAGE_TAG="${IMAGE_TAG}"
+                                export IMAGE_NAME IMAGE_TAG
 
                                 docker compose config -q
                                 docker compose pull
@@ -254,8 +253,7 @@ pipeline {
                                 --password-stdin \
                                 "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 
-                            export IMAGE_NAME="${IMAGE_NAME}"
-                            export IMAGE_TAG="${IMAGE_TAG}"
+                            export IMAGE_NAME IMAGE_TAG
 
                             docker compose config -q
                             docker compose pull
@@ -269,69 +267,57 @@ pipeline {
                 }
             }
         }
-stage('7. Deploy to Dev and Staging via Ansible EC2') {
-    steps {
-        withCredentials([
-            sshUserPrivateKey(
-                credentialsId: 'ansible-control-ssh-key',
-                keyFileVariable: 'ANSIBLE_KEY'
-            ),
-            file(
-                credentialsId: 'ansible-known-hosts',
-                variable: 'KNOWN_HOSTS_FILE'
-            )
-        ]) {
-            sh '''
-                set -eu
 
-                SSH_OPTS="-o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10"
+        stage('7. Deploy to Dev and Staging via Ansible') {
+            steps {
+                withCredentials([
+                    sshUserPrivateKey(
+                        credentialsId: 'ansible-control-ssh-key',
+                        keyFileVariable: 'ANSIBLE_KEY'
+                    ),
+                    file(
+                        credentialsId: 'ansible-known-hosts',
+                        variable: 'KNOWN_HOSTS_FILE'
+                    )
+                ]) {
+                    sh '''
+                        set -eu
 
-                echo "Checking SSH access to Ansible EC2..."
+                        SSH_OPTS="-o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10"
 
-                ssh $SSH_OPTS \
-                    -i "$ANSIBLE_KEY" \
-                    -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" \
-                    "${ANSIBLE_USER}@${ANSIBLE_HOST}" \
-                    'command -v ansible-playbook &&
-                     test -r /opt/ansible/my-web-app/inventory.ini &&
-                     test -r /opt/ansible/my-web-app/deploy.yml'
+                        echo "Checking SSH access to Ansible EC2..."
 
-                echo "Deploying to Dev..."
+                        ssh $SSH_OPTS \
+                          -i "$ANSIBLE_KEY" \
+                          -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" \
+                          "${ANSIBLE_USER}@${ANSIBLE_HOST}" \
+                          'command -v ansible-playbook &&
+                           test -r /opt/ansible/my-web-app/inventory.ini &&
+                           test -r /opt/ansible/my-web-app/deploy.yml'
 
-                ssh $SSH_OPTS \
-                    -i "$ANSIBLE_KEY" \
-                    -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" \
-                    "${ANSIBLE_USER}@${ANSIBLE_HOST}" \
-                    "ansible-playbook \
-                     -i '${ANSIBLE_INVENTORY}' \
-                     '${ANSIBLE_PLAYBOOK}' \
-                     --limit dev \
-                     -e 'image_name=${IMAGE_NAME}' \
-                     -e 'image_tag=${IMAGE_TAG}' \
-                     -e 'registry=${REGISTRY}' \
-                     -e 'aws_region=${AWS_REGION}' \
-                     -e 'aws_account_id=${AWS_ACCOUNT_ID}'"
+                        for ENVIRONMENT in dev staging; do
+                            echo "Deploying to ${ENVIRONMENT}..."
 
-                echo "Deploying to Staging..."
-
-                ssh $SSH_OPTS \
-                    -i "$ANSIBLE_KEY" \
-                    -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" \
-                    "${ANSIBLE_USER}@${ANSIBLE_HOST}" \
-                    "ansible-playbook \
-                     -i '${ANSIBLE_INVENTORY}' \
-                     '${ANSIBLE_PLAYBOOK}' \
-                     --limit staging \
-                     -e 'image_name=${IMAGE_NAME}' \
-                     -e 'image_tag=${IMAGE_TAG}' \
-                     -e 'registry=${REGISTRY}' \
-                     -e 'aws_region=${AWS_REGION}' \
-                     -e 'aws_account_id=${AWS_ACCOUNT_ID}'"
-            '''
+                            ssh $SSH_OPTS \
+                              -i "$ANSIBLE_KEY" \
+                              -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" \
+                              "${ANSIBLE_USER}@${ANSIBLE_HOST}" \
+                              "ansible-playbook \
+                               -i '${ANSIBLE_INVENTORY}' \
+                               '${ANSIBLE_PLAYBOOK}' \
+                               --limit '${ENVIRONMENT}' \
+                               -e 'image_name=${IMAGE_NAME}' \
+                               -e 'image_tag=${IMAGE_TAG}' \
+                               -e 'registry=${REGISTRY}' \
+                               -e 'aws_region=${AWS_REGION}' \
+                               -e 'aws_account_id=${AWS_ACCOUNT_ID}'"
+                        done
+                    '''
+                }
+            }
         }
-    }
-}
-        stage('7. Manual Approval - Production') {
+
+        stage('8. Manual Approval - Production') {
             steps {
                 timeout(time: 30, unit: 'MINUTES') {
                     input(
@@ -343,101 +329,80 @@ stage('7. Deploy to Dev and Staging via Ansible EC2') {
             }
         }
 
-        
+        stage('9. Deploy to Production via Ansible') {
+            steps {
+                withCredentials([
+                    sshUserPrivateKey(
+                        credentialsId: 'ansible-control-ssh-key',
+                        keyFileVariable: 'ANSIBLE_KEY'
+                    ),
+                    file(
+                        credentialsId: 'ansible-known-hosts',
+                        variable: 'KNOWN_HOSTS_FILE'
+                    )
+                ]) {
+                    sh '''
+                        set -eu
 
+                        SSH_OPTS="-o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10"
 
-stage('8. Deploy to Production via Ansible EC2') {
-    steps {
-        withCredentials([
-            sshUserPrivateKey(
-                credentialsId: 'ansible-control-ssh-key',
-                keyFileVariable: 'ANSIBLE_KEY'
-            ),
-            file(
-                credentialsId: 'ansible-known-hosts',
-                variable: 'KNOWN_HOSTS_FILE'
-            )
-        ]) {
-            sh '''
-                set -eu
+                        test -n "$ANSIBLE_HOST"
+                        test -n "$ANSIBLE_USER"
+                        test -n "$IMAGE_NAME"
+                        test -n "$IMAGE_TAG"
 
-                SSH_OPTS="-o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10"
+                        echo "Checking Ansible connectivity..."
 
-                echo "========================================"
-                echo "PRODUCTION DEPLOYMENT"
-                echo "========================================"
+                        ssh $SSH_OPTS \
+                          -i "$ANSIBLE_KEY" \
+                          -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" \
+                          "${ANSIBLE_USER}@${ANSIBLE_HOST}" \
+                          'whoami &&
+                           command -v ansible-playbook &&
+                           test -r /opt/ansible/my-web-app/inventory.ini &&
+                           test -r /opt/ansible/my-web-app/deploy.yml'
 
-                echo "Step 1: Checking required variables..."
+                        echo "Checking production inventory..."
 
-                test -n "$ANSIBLE_HOST"
-                test -n "$ANSIBLE_USER"
-                test -n "$ANSIBLE_INVENTORY"
-                test -n "$ANSIBLE_PLAYBOOK"
-                test -n "$IMAGE_NAME"
-                test -n "$IMAGE_TAG"
-                test -n "$REGISTRY"
+                        ssh $SSH_OPTS \
+                          -i "$ANSIBLE_KEY" \
+                          -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" \
+                          "${ANSIBLE_USER}@${ANSIBLE_HOST}" \
+                          "ansible-inventory \
+                           -i '${ANSIBLE_INVENTORY}' --graph"
 
-                echo "Ansible host: $ANSIBLE_HOST"
-                echo "Image name: $IMAGE_NAME"
-                echo "Image tag: $IMAGE_TAG"
-                echo "Registry: $REGISTRY"
+                        echo "Checking production playbook syntax..."
 
-                echo "Step 2: Checking SSH access to Ansible EC2..."
+                        ssh $SSH_OPTS \
+                          -i "$ANSIBLE_KEY" \
+                          -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" \
+                          "${ANSIBLE_USER}@${ANSIBLE_HOST}" \
+                          "ansible-playbook \
+                           -i '${ANSIBLE_INVENTORY}' \
+                           '${ANSIBLE_PLAYBOOK}' \
+                           --limit prod --syntax-check"
 
-                ssh $SSH_OPTS \
-                    -i "$ANSIBLE_KEY" \
-                    -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" \
-                    "${ANSIBLE_USER}@${ANSIBLE_HOST}" \
-                    'whoami &&
-                     command -v ansible-playbook &&
-                     test -r /opt/ansible/my-web-app/inventory.ini &&
-                     test -r /opt/ansible/my-web-app/deploy.yml'
+                        echo "Deploying to Production..."
 
-                echo "Step 3: Checking production inventory group..."
+                        ssh $SSH_OPTS \
+                          -i "$ANSIBLE_KEY" \
+                          -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" \
+                          "${ANSIBLE_USER}@${ANSIBLE_HOST}" \
+                          "ansible-playbook \
+                           -i '${ANSIBLE_INVENTORY}' \
+                           '${ANSIBLE_PLAYBOOK}' \
+                           --limit prod \
+                           -e 'image_name=${IMAGE_NAME}' \
+                           -e 'image_tag=${IMAGE_TAG}' \
+                           -e 'registry=${REGISTRY}' \
+                           -e 'aws_region=${AWS_REGION}' \
+                           -e 'aws_account_id=${AWS_ACCOUNT_ID}'"
 
-                ssh $SSH_OPTS \
-                    -i "$ANSIBLE_KEY" \
-                    -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" \
-                    "${ANSIBLE_USER}@${ANSIBLE_HOST}" \
-                    "ansible-inventory \
-                     -i '${ANSIBLE_INVENTORY}' \
-                     --graph"
-
-                echo "Step 4: Checking production playbook syntax..."
-
-                ssh $SSH_OPTS \
-                    -i "$ANSIBLE_KEY" \
-                    -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" \
-                    "${ANSIBLE_USER}@${ANSIBLE_HOST}" \
-                    "ansible-playbook \
-                     -i '${ANSIBLE_INVENTORY}' \
-                     '${ANSIBLE_PLAYBOOK}' \
-                     --limit prod \
-                     --syntax-check"
-
-                echo "Step 5: Deploying to Production..."
-
-                ssh $SSH_OPTS \
-                    -i "$ANSIBLE_KEY" \
-                    -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" \
-                    "${ANSIBLE_USER}@${ANSIBLE_HOST}" \
-                    "ansible-playbook \
-                     -i '${ANSIBLE_INVENTORY}' \
-                     '${ANSIBLE_PLAYBOOK}' \
-                     --limit prod \
-                     -e 'image_name=${IMAGE_NAME}' \
-                     -e 'image_tag=${IMAGE_TAG}' \
-                     -e 'registry=${REGISTRY}' \
-                     -e 'aws_region=${AWS_REGION}' \
-                     -e 'aws_account_id=${AWS_ACCOUNT_ID}'"
-
-                echo "========================================"
-                echo "PRODUCTION DEPLOYMENT COMPLETED"
-                echo "========================================"
-            '''
+                        echo "Production deployment completed."
+                    '''
+                }
+            }
         }
-    }
-}
     }
 
     post {
@@ -468,11 +433,11 @@ ${env.BUILD_URL}console
         }
 
         success {
-            echo 'All pipeline stages completed, including production deployment.'
+            echo 'All pipeline stages completed successfully.'
         }
 
         failure {
-            echo 'Pipeline failed or a release gate rejected the build.'
+            echo 'Pipeline failed or a quality/security gate rejected the build.'
         }
 
         cleanup {
