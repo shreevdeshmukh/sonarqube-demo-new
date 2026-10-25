@@ -46,7 +46,7 @@ pipeline {
     // REGISTRY         = '699258777180.dkr.ecr.ap-south-1.amazonaws.com'
    // AWS_REGION       = 'ap-south-1'
     //AWS_ACCOUNT_ID   = '699258777180'
-
+        COMPOSE_DIR = '/opt/my-web-app-new'
         NOTIFY_EMAIL = 'shreevdeshmukh@gmail.com'
     }
 
@@ -60,8 +60,8 @@ pipeline {
                     git log -1 --oneline
                     test -f pom.xml
                     test -f Dockerfile
-                    test -f ansible/inventory.ini
-                    test -f ansible/deploy.yml
+                 //   test -f ansible/inventory.ini
+                 //   test -f ansible/deploy.yml
                 '''
             }
         }
@@ -160,52 +160,116 @@ pipeline {
         }
 
        
-stage('5. Push Image to Docker Hub') {
-    steps {
-        withCredentials([
-            usernamePassword(
-                credentialsId: 'dockerhub-creds',
-                usernameVariable: 'DH_USER',
-                passwordVariable: 'DH_TOKEN'
-            )
-        ]) {
-            sh '''
-                set -eu
-                set +x
+ stage('5.Push to Registry') {
+            steps {
+                script {
+                    if (params.REGISTRY == 'DOCKERHUB') {
+                        withCredentials([
+                            usernamePassword(
+                                credentialsId: env.DOCKERHUB_CREDENTIALS,
+                                usernameVariable: 'DH_USER',
+                                passwordVariable: 'DH_TOKEN'
+                            )
+                        ]) {
+                            sh '''
+                                set -eu
+                                set +x
 
-                LOCAL_IMAGE="my-web-app-new:latest"
-                DOCKERHUB_IMAGE="ninande/my-web-app-new"
+                                echo "$DH_TOKEN" | docker login \
+                                  --username "$DH_USER" \
+                                  --password-stdin
 
-                echo "Checking local Docker image..."
-                docker image inspect "$LOCAL_IMAGE" >/dev/null
+                                docker push "${IMAGE_NAME}:${IMAGE_TAG}"
+                                docker push "${IMAGE_NAME}:latest"
 
-                echo "Logging in to Docker Hub..."
-                printf '%s' "$DH_TOKEN" |
-                    docker login \
-                        --username "$DH_USER" \
-                        --password-stdin
+                                docker logout || true
+                            '''
+                        }
+                    } else {
+                        sh '''
+                            set -eu
+                            set +x
 
-                echo "Tagging image for Docker Hub..."
-                docker tag "$LOCAL_IMAGE" \
-                    "${DOCKERHUB_IMAGE}:${BUILD_NUMBER}"
+                            aws ecr get-login-password \
+                              --region "${AWS_REGION}" |
+                              docker login \
+                                --username AWS \
+                                --password-stdin \
+                                "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 
-                docker tag "$LOCAL_IMAGE" \
-                    "${DOCKERHUB_IMAGE}:latest"
+                            docker push "${IMAGE_NAME}:${IMAGE_TAG}"
+                            docker push "${IMAGE_NAME}:latest"
 
-                echo "Pushing build-number tag..."
-                docker push "${DOCKERHUB_IMAGE}:${BUILD_NUMBER}"
-
-                echo "Pushing latest tag..."
-                docker push "${DOCKERHUB_IMAGE}:latest"
-
-                echo "Docker Hub push completed successfully."
-            '''
+                            docker logout \
+                              "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com" || true
+                        '''
+                    }
+                }
+            }
         }
-    }
-}
     
+ stage('6.Deploy with Docker Compose') {
+            steps {
+                script {
+                    if (params.REGISTRY == 'DOCKERHUB') {
+                        withCredentials([
+                            usernamePassword(
+                                credentialsId: env.DOCKERHUB_CREDENTIALS,
+                                usernameVariable: 'DH_USER',
+                                passwordVariable: 'DH_TOKEN'
+                            )
+                        ]) {
+                            sh '''
+                                set -eu
+                                set +x
 
-stage('6. Deploy to Dev and Staging via Ansible EC2') {
+                                cd "${COMPOSE_DIR}"
+
+                                echo "$DH_TOKEN" | docker login \
+                                  --username "$DH_USER" \
+                                  --password-stdin
+
+                                export IMAGE_NAME="${IMAGE_NAME}"
+                                export IMAGE_TAG="${IMAGE_TAG}"
+
+                                docker compose config -q
+                                docker compose pull
+                                docker compose up -d --remove-orphans
+                                docker compose ps
+
+                                docker logout || true
+                            '''
+                        }
+                    } else {
+                        sh '''
+                            set -eu
+                            set +x
+
+                            cd "${COMPOSE_DIR}"
+
+                            aws ecr get-login-password \
+                              --region "${AWS_REGION}" |
+                              docker login \
+                                --username AWS \
+                                --password-stdin \
+                                "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+
+                            export IMAGE_NAME="${IMAGE_NAME}"
+                            export IMAGE_TAG="${IMAGE_TAG}"
+
+                            docker compose config -q
+                            docker compose pull
+                            docker compose up -d --remove-orphans
+                            docker compose ps
+
+                            docker logout \
+                              "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com" || true
+                        '''
+                    }
+                }
+            }
+        }
+stage('7. Deploy to Dev and Staging via Ansible EC2') {
     steps {
         withCredentials([
             sshUserPrivateKey(
