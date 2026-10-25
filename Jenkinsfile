@@ -250,80 +250,88 @@ stage('5. Push to Registry') {
 }
 
 
-        stage('6. Deploy with Docker Compose') {
-            steps {
-                script {
-                    def imageName = params.REGISTRY == 'DOCKERHUB'
-    ? 'ninande/my-web-app-new'
-    : '699258777180.dkr.ecr.ap-south-1.amazonaws.com/my-web-app'
 
-def imageTag = "${env.BUILD_NUMBER}"
-                    withEnv([
-    "IMAGE_NAME=${imageName}",
-    "IMAGE_TAG=${imageTag}"
-]) {
-    // Your existing steps go here
+stage('6. Deploy with Docker Compose') {
+    steps {
+        script {
+            def imageName = params.REGISTRY == 'DOCKERHUB'
+                ? 'ninande/my-web-app-new'
+                : '699258777180.dkr.ecr.ap-south-1.amazonaws.com/my-web-app'
 
-                    
-                    if (params.REGISTRY == 'DOCKERHUB') {
-                        withCredentials([
-                            usernamePassword(
-                                credentialsId: env.DOCKERHUB_CREDENTIALS,
-                                usernameVariable: 'DH_USER',
-                                passwordVariable: 'DH_TOKEN'
-                            )
-                        ]) {
-                            sh '''
-                                set -eu
-                                set +x
+            def imageTag = "${env.BUILD_NUMBER}"
 
-                                cd "${COMPOSE_DIR}"
-
-                                echo "$DH_TOKEN" | docker login \
-                                  --username "$DH_USER" \
-                                  --password-stdin
-
-                                export IMAGE_NAME IMAGE_TAG
-
-                                docker compose config -q
-                                docker compose pull
-                                docker compose up -d --remove-orphans
-                                docker compose ps
-
-                                docker logout || true
-                            '''
-                        }
-                    } else {
+            withEnv([
+                "IMAGE_NAME=${imageName}",
+                "IMAGE_TAG=${imageTag}"
+            ]) {
+                if (params.REGISTRY == 'DOCKERHUB') {
+                    withCredentials([
+                        usernamePassword(
+                            credentialsId: 'dockerhub-creds',
+                            usernameVariable: 'DH_USER',
+                            passwordVariable: 'DH_TOKEN'
+                        )
+                    ]) {
                         sh '''
                             set -eu
                             set +x
 
                             cd "${COMPOSE_DIR}"
 
-                            aws ecr get-login-password \
-                              --region "${AWS_REGION}" |
-                              docker login \
-                                --username AWS \
-                                --password-stdin \
-                                "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-
-                            export IMAGE_NAME IMAGE_TAG
+                            echo "$DH_TOKEN" | docker login \
+                              --username "$DH_USER" \
+                              --password-stdin
 
                             docker compose config -q
                             docker compose pull
                             docker compose up -d --remove-orphans
                             docker compose ps
 
-                            docker logout \
-                              "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com" || true
+                            docker logout || true
                         '''
                     }
+                } else {
+                    sh '''
+                        set -eu
+                        set +x
+
+                        cd "${COMPOSE_DIR}"
+
+                        aws ecr get-login-password \
+                          --region "${AWS_REGION}" |
+                          docker login \
+                            --username AWS \
+                            --password-stdin \
+                            "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+
+                        docker compose config -q
+                        docker compose pull
+                        docker compose up -d --remove-orphans
+                        docker compose ps
+
+                        docker logout \
+                          "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com" || true
+                    '''
                 }
             }
         }
+    }
+}
+        
+stage('7. Deploy to Dev and Staging via Ansible') {
+    steps {
+        script {
+            def imageName = params.REGISTRY == 'DOCKERHUB'
+                ? 'ninande/my-web-app-new'
+                : '699258777180.dkr.ecr.ap-south-1.amazonaws.com/my-web-app'
 
-        stage('7. Deploy to Dev and Staging via Ansible') {
-            steps {
+            def imageTag = "${env.BUILD_NUMBER}"
+
+            withEnv([
+                "IMAGE_NAME=${imageName}",
+                "IMAGE_TAG=${imageTag}",
+                "REGISTRY=${params.REGISTRY}"
+            ]) {
                 withCredentials([
                     sshUserPrivateKey(
                         credentialsId: 'ansible-control-ssh-key',
@@ -339,8 +347,6 @@ def imageTag = "${env.BUILD_NUMBER}"
 
                         SSH_OPTS="-o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10"
 
-                        echo "Checking SSH access to Ansible EC2..."
-
                         ssh $SSH_OPTS \
                           -i "$ANSIBLE_KEY" \
                           -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" \
@@ -350,7 +356,7 @@ def imageTag = "${env.BUILD_NUMBER}"
                            test -r /opt/ansible/my-web-app/deploy.yml'
 
                         for ENVIRONMENT in dev staging; do
-                            echo "Deploying to ${ENVIRONMENT}..."
+                            echo "Deploying to ${ENVIRONMENT}: ${IMAGE_NAME}:${IMAGE_TAG}"
 
                             ssh $SSH_OPTS \
                               -i "$ANSIBLE_KEY" \
@@ -370,21 +376,43 @@ def imageTag = "${env.BUILD_NUMBER}"
                 }
             }
         }
+    }
+}
 
-        stage('8. Manual Approval - Production') {
-            steps {
-                timeout(time: 30, unit: 'MINUTES') {
-                    input(
-                        message: "Approve production deployment of ${IMAGE_NAME}:${IMAGE_TAG}?",
-                        ok: 'Approve Production',
-                        submitter: 'admin'
-                    )
-                }
+stage('8. Manual Approval - Production') {
+    steps {
+        script {
+            def imageName = params.REGISTRY == 'DOCKERHUB'
+                ? 'ninande/my-web-app-new'
+                : '699258777180.dkr.ecr.ap-south-1.amazonaws.com/my-web-app'
+
+            def imageTag = "${env.BUILD_NUMBER}"
+
+            timeout(time: 30, unit: 'MINUTES') {
+                input(
+                    message: "Approve production deployment of ${imageName}:${imageTag}?",
+                    ok: 'Approve Production',
+                    submitter: 'admin'
+                )
             }
         }
+    }
+}
 
-        stage('9. Deploy to Production via Ansible') {
-            steps {
+stage('9. Deploy to Production via Ansible') {
+    steps {
+        script {
+            def imageName = params.REGISTRY == 'DOCKERHUB'
+                ? 'ninande/my-web-app-new'
+                : '699258777180.dkr.ecr.ap-south-1.amazonaws.com/my-web-app'
+
+            def imageTag = "${env.BUILD_NUMBER}"
+
+            withEnv([
+                "IMAGE_NAME=${imageName}",
+                "IMAGE_TAG=${imageTag}",
+                "REGISTRY=${params.REGISTRY}"
+            ]) {
                 withCredentials([
                     sshUserPrivateKey(
                         credentialsId: 'ansible-control-ssh-key',
@@ -400,12 +428,7 @@ def imageTag = "${env.BUILD_NUMBER}"
 
                         SSH_OPTS="-o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10"
 
-                        test -n "$ANSIBLE_HOST"
-                        test -n "$ANSIBLE_USER"
-                        test -n "$IMAGE_NAME"
-                        test -n "$IMAGE_TAG"
-
-                        echo "Checking Ansible connectivity..."
+                        echo "Deploying ${IMAGE_NAME}:${IMAGE_TAG} to production"
 
                         ssh $SSH_OPTS \
                           -i "$ANSIBLE_KEY" \
@@ -415,28 +438,6 @@ def imageTag = "${env.BUILD_NUMBER}"
                            command -v ansible-playbook &&
                            test -r /opt/ansible/my-web-app/inventory.ini &&
                            test -r /opt/ansible/my-web-app/deploy.yml'
-
-                        echo "Checking production inventory..."
-
-                        ssh $SSH_OPTS \
-                          -i "$ANSIBLE_KEY" \
-                          -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" \
-                          "${ANSIBLE_USER}@${ANSIBLE_HOST}" \
-                          "ansible-inventory \
-                           -i '${ANSIBLE_INVENTORY}' --graph"
-
-                        echo "Checking production playbook syntax..."
-
-                        ssh $SSH_OPTS \
-                          -i "$ANSIBLE_KEY" \
-                          -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" \
-                          "${ANSIBLE_USER}@${ANSIBLE_HOST}" \
-                          "ansible-playbook \
-                           -i '${ANSIBLE_INVENTORY}' \
-                           '${ANSIBLE_PLAYBOOK}' \
-                           --limit prod --syntax-check"
-
-                        echo "Deploying to Production..."
 
                         ssh $SSH_OPTS \
                           -i "$ANSIBLE_KEY" \
@@ -458,6 +459,7 @@ def imageTag = "${env.BUILD_NUMBER}"
             }
         }
     }
+}
 
     post {
         always {
@@ -498,5 +500,4 @@ ${env.BUILD_URL}console
             sh 'docker image prune -f || true'
         }
     }
-}
 }
