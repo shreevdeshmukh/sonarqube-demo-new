@@ -181,57 +181,91 @@ stage('4. Build Image and Trivy Security Scan') {
     }
 }
 
-        stage('5. Push to Registry') {
-            steps {
-                script {
-                    if (params.REGISTRY == 'DOCKERHUB') {
-                        withCredentials([
-                            usernamePassword(
-                                credentialsId: env.DOCKERHUB_CREDENTIALS,
-                                usernameVariable: 'DH_USER',
-                                passwordVariable: 'DH_TOKEN'
-                            )
-                        ]) {
-                            sh '''
-                                set -eu
-                                set +x
+       
+stage('5. Push to Registry') {
+    steps {
+        script {
+            def imageName = params.REGISTRY == 'DOCKERHUB'
+                ? 'ninande/my-web-app-new'
+                : '699258777180.dkr.ecr.ap-south-1.amazonaws.com/my-web-app'
 
-                                echo "$DH_TOKEN" | docker login \
-                                  --username "$DH_USER" \
-                                  --password-stdin
+            def imageTag = "${env.BUILD_NUMBER}"
 
-                                docker push "${IMAGE_NAME}:${IMAGE_TAG}"
-                                docker push "${IMAGE_NAME}:latest"
+            env.IMAGE_NAME = imageName
+            env.IMAGE_TAG = imageTag
 
-                                docker logout || true
-                            '''
-                        }
-                    } else {
+            withEnv([
+                "IMAGE_NAME=${imageName}",
+                "IMAGE_TAG=${imageTag}"
+            ]) {
+                if (params.REGISTRY == 'DOCKERHUB') {
+                    withCredentials([
+                        usernamePassword(
+                            credentialsId: 'dockerhub-creds',
+                            usernameVariable: 'DH_USER',
+                            passwordVariable: 'DH_TOKEN'
+                        )
+                    ]) {
                         sh '''
                             set -eu
                             set +x
 
-                            aws ecr get-login-password \
-                              --region "${AWS_REGION}" |
-                              docker login \
-                                --username AWS \
-                                --password-stdin \
-                                "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+                            echo "Pushing ${IMAGE_NAME}:${IMAGE_TAG}"
+
+                            echo "$DH_TOKEN" | docker login \
+                              --username "$DH_USER" \
+                              --password-stdin
 
                             docker push "${IMAGE_NAME}:${IMAGE_TAG}"
                             docker push "${IMAGE_NAME}:latest"
 
-                            docker logout \
-                              "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com" || true
+                            docker logout || true
                         '''
                     }
+                } else {
+                    sh '''
+                        set -eu
+                        set +x
+
+                        echo "Logging in to AWS ECR..."
+
+                        aws ecr get-login-password \
+                          --region ap-south-1 |
+                          docker login \
+                            --username AWS \
+                            --password-stdin \
+                            699258777180.dkr.ecr.ap-south-1.amazonaws.com
+
+                        echo "Pushing ${IMAGE_NAME}:${IMAGE_TAG}"
+
+                        docker push "${IMAGE_NAME}:${IMAGE_TAG}"
+                        docker push "${IMAGE_NAME}:latest"
+
+                        docker logout \
+                          699258777180.dkr.ecr.ap-south-1.amazonaws.com || true
+                    '''
                 }
             }
         }
+    }
+}
+
 
         stage('6. Deploy with Docker Compose') {
             steps {
                 script {
+                    def imageName = params.REGISTRY == 'DOCKERHUB'
+    ? 'ninande/my-web-app-new'
+    : '699258777180.dkr.ecr.ap-south-1.amazonaws.com/my-web-app'
+
+def imageTag = "${env.BUILD_NUMBER}"
+                    withEnv([
+    "IMAGE_NAME=${imageName}",
+    "IMAGE_TAG=${imageTag}"
+]) {
+    // Your existing steps go here
+
+                    
                     if (params.REGISTRY == 'DOCKERHUB') {
                         withCredentials([
                             usernamePassword(
