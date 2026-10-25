@@ -284,41 +284,48 @@ stage('6. Deploy to Dev and Staging via Ansible EC2') {
             }
         }
 
-        stage('8. Deploy to Production via Ansible EC2') {
-            steps {
-                sshagent(credentials: ["${ANSIBLE_CREDENTIALS}"]) {
-                    withCredentials([
-                        file(
-                            credentialsId: "${ANSIBLE_KNOWN_HOSTS_CREDENTIALS}",
-                            variable: 'KNOWN_HOSTS_FILE'
-                        )
-                    ]) {
-                        sh '''
-                            set -eu
+        
+stage('8. Deploy to Production via Ansible EC2') {
+    steps {
+        withCredentials([
+            sshUserPrivateKey(
+                credentialsId: 'ansible-control-ssh-key',
+                keyFileVariable: 'ANSIBLE_KEY'
+            ),
+            file(
+                credentialsId: 'ansible-known-hosts',
+                variable: 'KNOWN_HOSTS_FILE'
+            )
+        ]) {
+            sh '''
+                set -eu
 
-                            SSH_OPTS="-o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10"
+                echo "Deploying to Production..."
 
-                            echo "Deploying to Production..."
+                ssh \
+                    -i "$ANSIBLE_KEY" \
+                    -o IdentitiesOnly=yes \
+                    -o BatchMode=yes \
+                    -o StrictHostKeyChecking=yes \
+                    -o ConnectTimeout=10 \
+                    -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" \
+                    "${ANSIBLE_USER}@${ANSIBLE_HOST}" \
+                    "ansible-playbook \
+                     -i '${ANSIBLE_INVENTORY}' \
+                     '${ANSIBLE_PLAYBOOK}' \
+                     --limit prod \
+                     -e 'image_name=${IMAGE_NAME}' \
+                     -e 'image_tag=${IMAGE_TAG}' \
+                     -e 'registry=${REGISTRY}' \
+                     -e 'aws_region=${AWS_REGION}' \
+                     -e 'aws_account_id=${AWS_ACCOUNT_ID}'"
 
-                            ssh $SSH_OPTS \
-                              -o UserKnownHostsFile="$KNOWN_HOSTS_FILE" \
-                              "${ANSIBLE_USER}@${ANSIBLE_HOST}" \
-                              "ansible-playbook \
-                               -i '${ANSIBLE_DIR}/inventory.ini' \
-                               '${ANSIBLE_DIR}/deploy.yml' \
-                               --limit prod \
-                               -e 'image_name=${IMAGE_NAME}' \
-                               -e 'image_tag=${IMAGE_TAG}' \
-                               -e 'registry=${REGISTRY}' \
-                               -e 'aws_region=${AWS_REGION}' \
-                               -e 'aws_account_id=${AWS_ACCOUNT_ID}'"
-
-                            echo 'Production deployment completed.'
-                        '''
-                    }
-                }
-            }
+                echo "Production deployment completed."
+            '''
         }
+    }
+}
+
     }
 
     post {
