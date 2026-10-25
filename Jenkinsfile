@@ -173,7 +173,7 @@ stage('5. Push Image to Docker Hub') {
                 set -eu
                 set +x
 
-                LOCAL_IMAGE="my-web-app:latest"
+                LOCAL_IMAGE="my-web-app-new:latest"
                 DOCKERHUB_IMAGE="ninande/my-web-app-new"
 
                 echo "Checking local Docker image..."
