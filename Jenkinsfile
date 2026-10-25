@@ -37,7 +37,7 @@ pipeline {
         ANSIBLE_PLAYBOOK = '/opt/ansible/my-web-app/deploy.yml'
         ANSIBLE_CREDENTIALS = 'ansible-control-ssh-key'
 
-        NOTIFY_EMAIL = 'ninad.de1105@gmail.com'
+        NOTIFY_EMAIL = 'shreevdeshmukh@gmail.com'
     }
 
     stages {
