@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile
     image: ninande/my-web-app:latest
-    container_name: my-web-app
+    container_name: my-web-app-new-01
     ports:
       - "8080:80"
     restart: unless-stopped
