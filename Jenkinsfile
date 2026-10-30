@@ -156,7 +156,7 @@ stage('4. Build Image and Trivy Security Scan') {
                       .
 
                     echo "Generating Trivy image report..."
-                    sh """
+                    
                     trivy image \
                       --scanners vuln \
                       --severity CRITICAL,HIGH \
@@ -164,16 +164,16 @@ stage('4. Build Image and Trivy Security Scan') {
                       --format json \
                       --output reports/trivy-image-report.json \
                       "${IMAGE_NAME}:${IMAGE_TAG}"
-                       """
+                       
                     echo "Enforcing critical vulnerability gate..."
-                   sh """
+                   
                     trivy image \
                       --scanners vuln \
                       --severity CRITICAL \
                       --ignore-unfixed \
                       --exit-code 1 \
                       "${IMAGE_NAME}:${IMAGE_TAG}"
-                   """
+                   
                     echo "Trivy security gate passed."
                 '''
             }
