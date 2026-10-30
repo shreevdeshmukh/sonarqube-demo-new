@@ -153,11 +153,10 @@ stage('4. Build Image and Trivy Security Scan') {
                     docker build \
                       -t "${IMAGE_NAME}:${IMAGE_TAG}" \
                       -t "${IMAGE_NAME}:latest" \
-                      ...
+                      .
 
                     echo "Generating Trivy image report..."
-                    sh(
-                    script: """
+                    sh """
                     trivy image \
                       --scanners vuln \
                       --severity CRITICAL,HIGH \
@@ -166,10 +165,8 @@ stage('4. Build Image and Trivy Security Scan') {
                       --output reports/trivy-image-report.json \
                       "${IMAGE_NAME}:${IMAGE_TAG}"
                        """
-                       )
                     echo "Enforcing critical vulnerability gate..."
-                   sh (
-                   script: """
+                   sh """
                     trivy image \
                       --scanners vuln \
                       --severity CRITICAL \
@@ -177,12 +174,13 @@ stage('4. Build Image and Trivy Security Scan') {
                       --exit-code 1 \
                       "${IMAGE_NAME}:${IMAGE_TAG}"
                    """
-                   )
                     echo "Trivy security gate passed."
-                    
-           }
+                '''
+            }
         }
     }
+}
+
        
 stage('5. Push to Registry') {
     steps {
@@ -236,7 +234,7 @@ stage('5. Push to Registry') {
                           docker login \
                             --username AWS \
                             --password-stdin \
-                          echo  699258777180.dkr.ecr.ap-south-1.amazonaws.com
+                            699258777180.dkr.ecr.ap-south-1.amazonaws.com
 
                         echo "Pushing ${IMAGE_NAME}:${IMAGE_TAG}"
 
