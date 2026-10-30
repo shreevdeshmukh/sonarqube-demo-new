@@ -1,6 +1,9 @@
 FROM nginx:alpine
 
-RUN rm -f /usr/share/nginx/html/index.html
+# Upgrade Alpine packages to patched versions
+RUN apk update && \
+    apk upgrade --no-cache && \
+    rm -f /usr/share/nginx/html/index.html
 
 COPY index.html /usr/share/nginx/html/index.html
 
