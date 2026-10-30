@@ -179,11 +179,10 @@ stage('4. Build Image and Trivy Security Scan') {
                    """
                    )
                     echo "Trivy security gate passed."
+                    
            }
         }
     }
-}
-
        
 stage('5. Push to Registry') {
     steps {
