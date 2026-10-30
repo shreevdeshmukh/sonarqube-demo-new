@@ -149,30 +149,31 @@ stage('4. Build Image and Trivy Security Scan') {
                       .
 
                     echo "Building ${IMAGE_NAME}:${IMAGE_TAG}"
-
+                    
                     docker build \
                       -t "${IMAGE_NAME}:${IMAGE_TAG}" \
                       -t "${IMAGE_NAME}:latest" \
                       .
 
                     echo "Generating Trivy image report..."
-
+                    sh """
                     trivy image \
-                      --severity CRITICAL \
+                      --scanners vuln \
+                      --severity CRITICAL,HIGH \
                       --ignore-unfixed \
-                      --exit-code 0 \
                       --format json \
                       --output reports/trivy-image-report.json \
                       "${IMAGE_NAME}:${IMAGE_TAG}"
-
+                       """
                     echo "Enforcing critical vulnerability gate..."
-
+                   sh """
                     trivy image \
+                      --scanners vuln \
                       --severity CRITICAL \
                       --ignore-unfixed \
                       --exit-code 1 \
                       "${IMAGE_NAME}:${IMAGE_TAG}"
-
+                   """
                     echo "Trivy security gate passed."
                 '''
             }
