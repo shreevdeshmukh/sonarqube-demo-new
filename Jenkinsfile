@@ -236,7 +236,7 @@ stage('5. Push to Registry') {
                           docker login \
                             --username AWS \
                             --password-stdin \
-                            699258777180.dkr.ecr.ap-south-1.amazonaws.com
+                          echo  699258777180.dkr.ecr.ap-south-1.amazonaws.com
 
                         echo "Pushing ${IMAGE_NAME}:${IMAGE_TAG}"
 
