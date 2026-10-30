@@ -153,7 +153,7 @@ stage('4. Build Image and Trivy Security Scan') {
                     docker build \
                       -t "${IMAGE_NAME}:${IMAGE_TAG}" \
                       -t "${IMAGE_NAME}:latest" \
-                      .
+                      ...
 
                     echo "Generating Trivy image report..."
                     sh(
