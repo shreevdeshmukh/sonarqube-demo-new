@@ -14,97 +14,143 @@
 
       body {
         font-family: Arial, sans-serif;
-        background: #f4f7fb;
+        background: #f1f5f9;
         color: #333;
-        line-height: 1.6;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
       }
 
       header {
         background: #172554;
         color: white;
-        padding: 25px 20px;
         text-align: center;
+        padding: 16px 10px;
       }
 
       header h1 {
-        font-size: 30px;
+        font-size: 26px;
+        margin-bottom: 3px;
       }
 
-      .container {
-        max-width: 950px;
-        margin: 50px auto;
-        padding: 20px;
+      header p {
+        font-size: 14px;
+      }
+
+      main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 15px;
+        gap: 20px;
       }
 
       .welcome {
         background: white;
-        padding: 40px 25px;
-        border-radius: 12px;
+        width: 100%;
+        max-width: 850px;
         text-align: center;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        padding: 22px 15px;
+        border-radius: 10px;
+        box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
       }
 
       .welcome h2 {
         color: #1d4ed8;
-        margin-bottom: 15px;
-        font-size: 28px;
+        font-size: 25px;
+        margin-bottom: 10px;
       }
 
       .welcome p {
-        margin-bottom: 12px;
-        color: #555;
+        font-size: 14px;
+        margin: 6px 0;
       }
 
       .tech-stack {
-        margin-top: 35px;
         text-align: center;
+        width: 100%;
       }
 
       .tech-stack h2 {
-        margin-bottom: 20px;
         color: #172554;
+        margin-bottom: 15px;
+        font-size: 21px;
       }
 
       .cards {
         display: flex;
         flex-wrap: wrap;
         justify-content: center;
-        gap: 15px;
+        gap: 12px;
+        max-width: 850px;
+        margin: auto;
       }
 
       .card {
         background: white;
-        padding: 18px 25px;
-        border-radius: 8px;
-        min-width: 140px;
-        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.06);
+        padding: 12px 20px;
+        border-radius: 7px;
+        min-width: 125px;
+        font-size: 14px;
         font-weight: bold;
         color: #1d4ed8;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
       }
 
       footer {
         background: #172554;
         color: white;
         text-align: center;
-        padding: 20px;
-        margin-top: 50px;
+        padding: 12px;
+        font-size: 13px;
       }
 
       footer p {
-        margin: 5px;
+        margin: 3px;
       }
 
-      @media (max-width: 600px) {
-        header h1 {
-          font-size: 23px;
+      @media (max-height: 600px) {
+        header {
+          padding: 9px;
+        }
+
+        main {
+          gap: 10px;
+          padding: 8px;
+        }
+
+        .welcome {
+          padding: 12px;
+        }
+
+        .cards {
+          gap: 7px;
+        }
+
+        .card {
+          padding: 7px 12px;
+        }
+
+        footer {
+          padding: 7px;
+        }
+      }
+
+      @media (max-width: 500px) {
+        body {
+          overflow: auto;
         }
 
         .welcome h2 {
-          font-size: 23px;
+          font-size: 21px;
         }
 
-        .container {
-          margin: 20px auto;
+        .card {
+          min-width: 105px;
+          padding: 10px;
         }
       }
     </style>
@@ -116,13 +162,13 @@
       <p>Automated End-to-End CI/CD Pipeline</p>
     </header>
 
-    <main class="container">
+    <main>
       <section class="welcome">
         <h2>Welcome to My DevOps Project!</h2>
 
         <p>
-          This is my sample web application developed to demonstrate an
-          end-to-end CI/CD pipeline.
+          This is my sample web application demonstrating an end-to-end CI/CD
+          pipeline.
         </p>
 
         <p>
