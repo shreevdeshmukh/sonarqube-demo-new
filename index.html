@@ -1,13 +1,156 @@
-<!DOCTYPE html>
-<!DOCTYPE html>
-<html>
-<head>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>My DevOps Project</title>
-</head>
-<body>
-    <h1>Welcome to My DevOps Project!</h1>
-    <p>This is my first HTML web page to test end-to-end CI/CD pipeline.</p>
-    <p>Deployed using Jenkins, SonarQube, Trivy, Docker Compose, Ansible, AWS EC2/ECR.</p>
-    <p>Created By Shrikant Deshmukh</p>
-</body>
+
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: Arial, sans-serif;
+        background: #f4f7fb;
+        color: #333;
+        line-height: 1.6;
+      }
+
+      header {
+        background: #172554;
+        color: white;
+        padding: 25px 20px;
+        text-align: center;
+      }
+
+      header h1 {
+        font-size: 30px;
+      }
+
+      .container {
+        max-width: 950px;
+        margin: 50px auto;
+        padding: 20px;
+      }
+
+      .welcome {
+        background: white;
+        padding: 40px 25px;
+        border-radius: 12px;
+        text-align: center;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+      }
+
+      .welcome h2 {
+        color: #1d4ed8;
+        margin-bottom: 15px;
+        font-size: 28px;
+      }
+
+      .welcome p {
+        margin-bottom: 12px;
+        color: #555;
+      }
+
+      .tech-stack {
+        margin-top: 35px;
+        text-align: center;
+      }
+
+      .tech-stack h2 {
+        margin-bottom: 20px;
+        color: #172554;
+      }
+
+      .cards {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 15px;
+      }
+
+      .card {
+        background: white;
+        padding: 18px 25px;
+        border-radius: 8px;
+        min-width: 140px;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.06);
+        font-weight: bold;
+        color: #1d4ed8;
+      }
+
+      footer {
+        background: #172554;
+        color: white;
+        text-align: center;
+        padding: 20px;
+        margin-top: 50px;
+      }
+
+      footer p {
+        margin: 5px;
+      }
+
+      @media (max-width: 600px) {
+        header h1 {
+          font-size: 23px;
+        }
+
+        .welcome h2 {
+          font-size: 23px;
+        }
+
+        .container {
+          margin: 20px auto;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <header>
+      <h1>My DevOps Project</h1>
+      <p>Automated End-to-End CI/CD Pipeline</p>
+    </header>
+
+    <main class="container">
+      <section class="welcome">
+        <h2>Welcome to My DevOps Project!</h2>
+
+        <p>
+          This is my sample web application developed to demonstrate an
+          end-to-end CI/CD pipeline.
+        </p>
+
+        <p>
+          Automated build, code quality analysis, security scanning,
+          containerization and deployment.
+        </p>
+      </section>
+
+      <section class="tech-stack">
+        <h2>Technology Stack</h2>
+
+        <div class="cards">
+          <div class="card">Jenkins</div>
+          <div class="card">SonarQube</div>
+          <div class="card">Trivy</div>
+          <div class="card">Docker</div>
+          <div class="card">Docker Compose</div>
+          <div class="card">Ansible</div>
+          <div class="card">AWS EC2</div>
+          <div class="card">AWS ECR</div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>Created by Shrikant Deshmukh</p>
+      <p>DevOps | Cloud | Automation | CI/CD</p>
+      <p>&copy; 2026 My DevOps Project. All Rights Reserved.</p>
+    </footer>
+  </body>
 </html>
