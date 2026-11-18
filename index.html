@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
     <title>My DevOps Project</title>
 
     <style>
@@ -13,71 +14,71 @@
       }
 
       body {
-        font-family: Arial, sans-serif;
+        font-family: Arial, Helvetica, sans-serif;
         background: #f1f5f9;
         color: #333;
         min-height: 100vh;
         display: flex;
         flex-direction: column;
-        overflow: hidden;
       }
 
+      /* Header */
       header {
         background: #172554;
         color: white;
         text-align: center;
-        padding: 16px 10px;
+        padding: 25px 15px;
       }
 
       header h1 {
-        font-size: 26px;
-        margin-bottom: 3px;
+        font-size: 30px;
+        margin-bottom: 8px;
       }
 
       header p {
-        font-size: 14px;
+        font-size: 15px;
       }
 
+      /* Main Content */
       main {
         flex: 1;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        padding: 15px;
-        gap: 20px;
+        width: 100%;
+        max-width: 1000px;
+        margin: auto;
+        padding: 25px 20px;
       }
 
+      /* Welcome Section */
       .welcome {
         background: white;
-        width: 100%;
-        max-width: 850px;
         text-align: center;
-        padding: 22px 15px;
-        border-radius: 10px;
-        box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+        padding: 30px 20px;
+        border-radius: 8px;
+        margin-bottom: 25px;
+        border: 1px solid #e2e8f0;
       }
 
       .welcome h2 {
         color: #1d4ed8;
         font-size: 25px;
-        margin-bottom: 10px;
+        margin-bottom: 15px;
       }
 
       .welcome p {
-        font-size: 14px;
-        margin: 6px 0;
+        font-size: 15px;
+        line-height: 1.7;
+        margin: 8px 0;
       }
 
+      /* Technology Stack */
       .tech-stack {
         text-align: center;
-        width: 100%;
       }
 
       .tech-stack h2 {
         color: #172554;
-        margin-bottom: 15px;
-        font-size: 21px;
+        font-size: 22px;
+        margin-bottom: 18px;
       }
 
       .cards {
@@ -85,83 +86,72 @@
         flex-wrap: wrap;
         justify-content: center;
         gap: 12px;
-        max-width: 850px;
-        margin: auto;
       }
 
       .card {
         background: white;
-        padding: 12px 20px;
-        border-radius: 7px;
-        min-width: 125px;
+        color: #1d4ed8;
+        padding: 14px 20px;
+        min-width: 145px;
+        border: 1px solid #dbeafe;
+        border-radius: 6px;
         font-size: 14px;
         font-weight: bold;
-        color: #1d4ed8;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
       }
 
+      .card:hover {
+        background: #eaf2ff;
+        border-color: #1d4ed8;
+      }
+
+      /* Footer */
       footer {
         background: #172554;
         color: white;
         text-align: center;
-        padding: 12px;
+        padding: 15px 10px;
         font-size: 13px;
+        margin-top: 15px;
       }
 
       footer p {
-        margin: 3px;
+        margin: 4px;
       }
 
-      @media (max-height: 600px) {
-        header {
-          padding: 9px;
+      /* Responsive Design */
+      @media (max-width: 600px) {
+        header h1 {
+          font-size: 24px;
         }
 
         main {
-          gap: 10px;
-          padding: 8px;
-        }
-
-        .welcome {
-          padding: 12px;
-        }
-
-        .cards {
-          gap: 7px;
-        }
-
-        .card {
-          padding: 7px 12px;
-        }
-
-        footer {
-          padding: 7px;
-        }
-      }
-
-      @media (max-width: 500px) {
-        body {
-          overflow: auto;
+          padding: 18px 12px;
         }
 
         .welcome h2 {
           font-size: 21px;
         }
 
+        .cards {
+          gap: 8px;
+        }
+
         .card {
-          min-width: 105px;
-          padding: 10px;
+          min-width: 120px;
+          padding: 12px;
         }
       }
     </style>
   </head>
 
   <body>
+    <!-- Header -->
     <header>
-      <h1>### DevOps Project ###</h1>
-      <p>Automated End-to-End CI/CD pipeline for a microservices application</p>
+      <h1>DevOps Project</h1>
+      <p>Automated End-to-End CI/CD Pipeline for a Microservices Application</p>
     </header>
 
+    <!-- Main Content -->
     <main>
       <section class="welcome">
         <h2>Welcome to My DevOps Project!</h2>
@@ -173,10 +163,12 @@
 
         <p>
           A code push triggers Jenkins, which builds, tests, scans and packages
-          the app, then Ansible deploys it and the team is notified.
+          the application. Ansible then deploys it, followed by email
+          notifications to the team.
         </p>
       </section>
 
+      <!-- Technology Stack -->
       <section class="tech-stack">
         <h2>Technology Stack</h2>
 
@@ -187,7 +179,7 @@
           <div class="card">Trivy</div>
           <div class="card">Docker</div>
           <div class="card">Docker Compose</div>
-          <div class="card">DockerHub</div>
+          <div class="card">Docker Hub</div>
           <div class="card">Manual Approval</div>
           <div class="card">Ansible</div>
           <div class="card">AWS EC2</div>
@@ -197,6 +189,7 @@
       </section>
     </main>
 
+    <!-- Footer -->
     <footer>
       <p>Created by Shrikant Deshmukh</p>
       <p>DevOps | Cloud | Automation | CI/CD</p>
